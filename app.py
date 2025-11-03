@@ -1,13 +1,18 @@
 from flask import Flask, jsonify, request
 import mysql.connector
 import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime
 import logging
 import config
+import sys
 
 app = Flask(__name__)
 
-logging.basicConfig(filename='logs/app.log', level=logging.INFO)
+# Log to journalctl
+logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(message)s')
+
 
 def get_connection():
     return mysql.connector.connect(
@@ -109,18 +114,23 @@ def purchase():
         """
 
         # Send email
-        ses = boto3.client('ses', region_name=config.AWS_REGION)
-        ses.send_email(
-            Source='yahiruvc@gmail.com',
-            Destination={'ToAddresses': [buyer_email]},
-            Message={
-                'Subject': {'Data': 'Mini Amazon - Order Confirmation'},
-                'Body': {
-                    'Html': {'Data': email_html},
-                    'Text': {'Data': f"Thank you {buyer_name} for your order! Total: ${total_price:.2f}"}
+        try:
+            ses = boto3.client('ses', region_name=config.AWS_REGION)
+            ses.send_email(
+                Source=config.SES_SOURCE,
+                Destination={'ToAddresses': [buyer_email]},
+                Message={
+                    'Subject': {'Data': 'Mini Amazon - Order Confirmation'},
+                    'Body': {
+                        'Html': {'Data': email_html},
+                        'Text': {'Data': f"Thank you {buyer_name} for your order! Total: ${total_price:.2f}"}
+                    }
                 }
-            }
-        )
+            )
+            logging.info(f"Purchase email sent to {buyer_email}")
+        except ClientError as e:
+            logging.error(f"SES send_email failed: {e}")
+
 
         logging.info(f"Order successful for {buyer_name} ({buyer_email}), total ${total_price:.2f}")
         return jsonify({"success": True, "total": total_price})
