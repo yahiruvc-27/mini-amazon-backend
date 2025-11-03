@@ -1,0 +1,5 @@
+RDS_ENDPOINT = "miniamazondb.cctm6is0819y.us-east-1.rds.amazonaws.com"
+DB_USER = "admin"
+DB_PASS = "Vicaya27#6"
+DB_NAME = "store"
+AWS_REGION = "us-east-1"
