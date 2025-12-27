@@ -40,9 +40,9 @@ def get_products():
 def purchase():
     data = request.get_json()
 
-    # Basic validation
+    # Basic validation [required (name, email & items)]
     if not data or 'buyer_name' not in data or 'buyer_email' not in data or 'items' not in data:
-        return jsonify({"success": False, "message": "Missing required fields"}), 400
+        return jsonify({"success": False, "message": "Missing data fields (name, email, items)"}), 400
 
     buyer_name = data['buyer_name']
     buyer_email = data['buyer_email']
@@ -62,12 +62,12 @@ def purchase():
             cursor.execute("SELECT name, price, stock FROM products WHERE product_id = %s", (pid,))
             product = cursor.fetchone()
 
-            if not product:
+            if not product: # Incorrect product NOT EXISTING IN DB
                 raise Exception(f"Product ID {pid} not found.")
-            if product['stock'] < qty:
-                raise Exception(f"Not enough stock for {product['name']} (available: {product['stock']}, requested: {qty}).")
+            if product['stock'] < qty: # Not enough stock
+                raise Exception(f"Not enough stock for {product['name']}, (available: {product['stock']}, requested: {qty}).")
 
-            # Accumulate order summary
+            # Calculate order summary
             subtotal = float(product['price']) * qty
             total_price += subtotal
             order_details.append({
@@ -78,7 +78,7 @@ def purchase():
                 "subtotal": subtotal
             })
 
-        # All stock valid, proceed with update and sales insert
+        # All stock valid, proceed with update (reduce stock) and sales insert (register sales in sales table)
         for item in items:
             pid = item['product_id']
             qty = item.get('quantity', 1)
@@ -90,7 +90,7 @@ def purchase():
 
         conn.commit()
 
-        # Prepare email (HTML)
+        # Prepare email with all the products 
         order_lines = "".join([
             f"<tr><td>{d['name']}</td><td>{d['qty']}</td><td>${d['price']:.2f}</td><td>${d['subtotal']:.2f}</td></tr>"
             for d in order_details
